@@ -1,0 +1,162 @@
+#attach below is the data for this study
+#https://drive.google.com/file/d/1flzzD3oJ1sTLD-TPEX8G7iNjd6rrwKmO/view?usp=drivesdk
+ 
+
+# Install required packages if not already installed
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(forecast)) install.packages("forecast")
+if (!require(tseries)) install.packages("tseries")
+if (!require(lubridate)) install.packages("lubridate")
+if (!require(zoo)) install.packages("zoo")
+if (!require(pdftools)) install.packages("pdftools")
+
+# Load required libraries
+library(tidyverse)
+library(forecast)
+library(tseries)
+library(lubridate)
+library(zoo)
+library(pdftools)
+
+# Attempt to import data from PDF
+tryCatch({
+  # Extract text from PDF
+  pdf_file <- "Nigeria Crude Oil Price.pdf"
+  pdf_text <- pdf_text(pdf_file)
+  
+  # Process the PDF text into a data frame (assuming table structure: Years as rows, Months as columns)
+  # This is a simplified parsing; adjust based on actual PDF structure
+  lines <- unlist(strsplit(pdf_text, "\n"))
+
+  # Remove header and empty lines
+  lines <- lines[lines != "" & !grepl("Nigeria Crude Oil Price|US\\$/ Barrel", lines)]
+  
+  # introduce data frame
+  data <- data.frame(Year = integer(), Month = character(), Price = numeric())
+  
+  # Parse each line (Year followed by 12 monthly prices)
+  months <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+  for (line in lines) {
+    # Split line into components (Year and prices)
+    components <- strsplit(trimws(line), "\\s+")[[1]]
+    if (length(components) >= 13) { # Year + 12 months
+      year <- as.integer(components[1])
+      prices <- as.numeric(components[2:13])
+      temp_df <- data.frame(
+        Year = rep(year, 12),
+        Month = months,
+        Price = prices
+      )
+      data <- rbind(data, temp_df)
+    }
+  }
+  
+  
+
+# Ensure correct column names and filter out NA values
+data <- data %>%
+  rename(Year = Year, Month = Month, Price = Price) %>%
+  filter(!is.na(Price))
+
+# Create a date column for time-series
+data$Date <- as.Date(paste(data$Year, data$Month, "01", sep = "-"), format = "%Y-%b-%d")
+
+# Convert to time-series object
+ts_data <- ts(data$Price, start = c(2006, 1), frequency = 12)
+
+# 1. Descriptive Statistics
+cat("Descriptive Statistics:\n")
+summary_stats <- summary(data$Price)
+mean_price <- mean(data$Price)
+sd_price <- sd(data$Price)
+cat("Mean Price:", mean_price, "\n")
+cat("Standard Deviation:", sd_price, "\n")
+print(summary_stats)
+
+# 2. Stationarity Test (Augmented Dickey-Fuller Test)
+cat("\nAugmented Dickey-Fuller Test for Stationarity:\n")
+adf_test <- adf.test(ts_data)
+print(adf_test)
+
+# 3. Model Fitting and Selection
+# 3.1 Fit ARIMA(1,1,1)
+arima_111 <- arima(ts_data, order = c(1, 1, 1))
+cat("\nARIMA(1,1,1) Model Summary:\n")
+print(summary(arima_111))
+
+# 3.2 Fit ARIMA(1,1,0)
+arima_110 <- arima(ts_data, order = c(1, 1, 0))
+cat("\nARIMA(1,1,0) Model Summary:\n")
+print(summary(arima_110))
+
+# 3.3 Fit auto.arima (best model)
+cat("\nAuto ARIMA Model Fitting:\n")
+arima_auto <- auto.arima(ts_data, seasonal = TRUE, stepwise = TRUE, approximation = FALSE)
+cat("Auto ARIMA Model Summary:\n")
+print(summary(arima_auto))
+
+
+# 3.6 Diagnostics for Each Model
+  residuals 110 <- residuals(arima_110)
+  lb_test <- Box.test(residuals, lag = 12, type = "Ljung-Box")
+  mae <- mean(abs(residuals))
+  rmse <- sqrt(mean(residuals^2))
+
+
+ # 4. Visualizations (included as requested, but can be skipped)
+ # 4.1 Time-Series Plot
+ p1 <- ggplot(data, aes(x = Date, y = Price)) +
+ geom_line(color = "blue") +
+ geom_point(size = 1) +
+ theme_minimal() +
+ labs(title = "Nigeria Crude Oil Price (2006-2023)", x = "Date", y = "Price (US$/Barrel)") +
+ theme(plot.title = element_text(hjust = 0.5))
+ print(p1)
+ # 4.2 Boxplot by Year
+ p2 <- ggplot(data, aes(x = factor(Year), y = Price)) +
+ geom_boxplot(fill = "lightblue") +
+ theme_minimal() +
+ labs(title = "Boxplot of Crude Oil Prices by Year", x = "Year", y = "Price (US$/Barrel)") +
+ theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1))
+ print(p2)
+ # 4.3 Seasonal Plot
+ p3 <- ggseasonplot(ts_data, year.labels = TRUE, continuous = TRUE) +
+ labs(title = "Seasonal Plot of Crude Oil Prices", y = "Price (US$/Barrel)") +
+ theme_minimal()
+ print(p3)
+
+ # 4.4 Histogram of Prices
+ p4 <- ggplot(data, aes(x = Price)) +
+ geom_histogram(binwidth = 5, fill = "lightgreen", color = "black") +
+ theme_minimal() +
+ labs(title = "Histogram of Crude Oil Prices", x = "Price (US$/Barrel)", y = "Frequency") +
+ theme(plot.title = element_text(hjust = 0.5))
+ print(p4)
+ # 4.5 Autocorrelation Plot (ACF)
+ acf(ts_data, main = "ACF of Crude Oil Prices")
+ # 4.6 Partial Autocorrelation Plot (PACF)
+ pacf(ts_data, main = "PACF of Crude Oil Prices")
+
+# 4.7 Residual Diagnistic plot
+ par(mfrow = c(1, 1))
+ # 4.7.1 Residual Time Series Plot
+ plot(residuals, type = "l", main = "Residuals Time Series", xlab = "Time", ylab = "Residuals")
+ abline(h = 0, col = "red", lty = 2)
+ # 4.7.2 Residual ACF Plot
+ acf(residuals, lag.max = 20, main = "Residual ACF", ylab = "Autocorrelation")
+ # 4.7.3 Residual PACF Plot
+ pacf(residuals, lag.max = 20, main = "Residual PACF", ylab = "Partial Autocorrelation")
+ # 4.7.4 Residual Histogram
+ hist(residuals, breaks = 20, prob = TRUE, main = "Residual Histogram", xlab = "Residuals", col = "lightblue")
+ curve(dnorm(x, mean = mean(residuals), sd = sd(residuals)), add = TRUE, col = "red", lwd = 2)
+ # 4.7.5 Q-Q Plot
+ qqnorm(residuals, main = "Q-Q Plot of Residuals")
+ qqline(residuals, col = "red", lwd = 2)
+
+# 4.8 Decomposition Plot
+ Page 3
+ decomp <- decompose(ts_data, type = "multiplicative")
+ plot(decomp)
+ # 4.9 Forecast Plot
+ forecast_values <- forecast(arima_auto, h = 12)
+ plot(forecast_values, main = "12-Month Forecast of Crude Oil Prices", xlab = "Year", ylab = "Price (US$/Barrel)")# 4. Yearly Average Prices for Bar Chart
