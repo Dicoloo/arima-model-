@@ -1,1 +1,1 @@
-# arima-model-
+This repository contains the Nigeria Crude Oil Price Analysis project, which explores monthly crude oil prices (US$/Barrel) from 2006 to 2023. The data in pdf format, modeled using ARIMA to capture price trends, and validated with residual diagnostics (ACF, PACF, histogram, and Q-Q plots) in R. This project demonstrates time series analysis techniques for understanding Nigeria’s oil price dynamics.
