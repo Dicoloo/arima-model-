@@ -102,6 +102,25 @@ print(summary(arima_auto))
   mae <- mean(abs(residuals))
   rmse <- sqrt(mean(residuals^2))
 
+# Summary statistics for residuals
+  cat("Residual Summary:\n")
+  cat("Mean:", mean(residuals), "\n")
+  cat("Variance:", var(residuals), "\n")
+  
+  # Ljung-Box test for autocorrelation
+  lb_test <- Box.test(residuals, lag = 12, type = "Ljung-Box")
+  cat("Ljung-Box Test p-value:", lb_test$p.value, "\n")
+  
+  # Shapiro-Wilk test for normality
+  sw_test <- shapiro.test(residuals)
+  cat("Shapiro-Wilk Normality Test p-value:", sw_test$p.value, "\n")
+  
+  # MAE and RMSE
+  mae <- mean(abs(residuals))
+  rmse <- sqrt(mean(residuals^2))
+  cat("MAE:", mae, "\n")
+  cat("RMSE:", rmse, "\n")
+
 
  # 4. Visualizations (included as requested, but can be skipped)
  # 4.1 Time-Series Plot
